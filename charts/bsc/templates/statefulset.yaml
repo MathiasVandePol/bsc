@@ -1,0 +1,126 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "bsc.fullname" . }}
+  labels:
+{{ include "bsc.labels" . | indent 4 }}
+spec:
+  serviceName: "{{ .Release.Name }}-service"
+  replicas: {{ .Values.replicaCount }} # by default is 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "bsc.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      bsc/chain: {{ .Values.bsc.chain }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "bsc.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        bsc/chain: {{ .Values.bsc.chain }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.securityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.bscCmdOverride }}
+        command: [ "{{ .Values.bscCmd }}" ]
+        {{- end }}
+        args:
+          - --config=/config/config.toml
+          - --datadir={{ .Values.bsc.base_path }}
+          - --syncmode={{ .Values.bsc.syncmode }}
+          - --gcmode={{ .Values.bsc.gcmode }}
+          - --http
+          - --http.addr=0.0.0.0
+          - --http.port={{ .Values.service.httpPort }}
+          - --http.api="{{ .Values.bsc.httpApi }}"
+          - --http.vhosts="{{ .Values.bsc.httpVhosts }}"
+          - --ws
+          - --ws.addr=0.0.0.0
+          - --ws.port={{ .Values.service.wsPort }}
+          - --ws.api="{{ .Values.bsc.wsApi }}"
+          - --ws.origins="{{ .Values.bsc.wsOrigins }}"
+          - --maxpeers={{ .Values.bsc.maxpeers }}
+          - --cache={{ .Values.bsc.cache }}
+          - --port={{ .Values.service.p2pPort0 }}
+          {{- if and .Values.externalLBp2p .Values.externalLBp2pIP }}
+          - --nat=extip:{{- .Values.externalLBp2pIP -}}
+          {{- end }}
+        workingDir: "{{ .Values.bsc.base_path }}"
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        ports:
+          {{- range $val := .Values.service.ports }}
+        - containerPort: {{ $val.port }}
+          name: "{{ $val.name }}"
+          protocol: {{ $val.protocol | default "TCP" }}
+          {{- end }}
+        volumeMounts:
+        - name: bsc-config
+          mountPath: /config
+        - name: scripts
+          mountPath: /scripts
+        - name: bsc-pvc
+          mountPath: {{ .Values.bsc.base_path }}
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - /scripts/check_node_health.sh
+            - http://127.0.0.1:{{ .Values.service.httpPort }}
+            - "300"
+            - last_synced_block.txt
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          successThreshold: {{ .Values.livenessProbe.successThreshold }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+      initContainers:
+      {{- if .Values.init_genesis }}
+      - name: init
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command: ["/bin/sh", "-c", "geth --datadir={{ .Values.bsc.base_path }} init /genesis/genesis.json"]
+        volumeMounts:
+          - name: bsc-pvc
+            mountPath: {{ .Values.bsc.base_path }}
+          - name: bsc-genesis
+            mountPath: /genesis
+      {{- end }}
+      volumes:
+        - name: bsc-config
+          configMap:
+            name: "{{ .Release.Name }}-config"
+        - name: bsc-genesis
+          configMap:
+            name: "{{ .Release.Name }}-genesis"
+        - name: scripts
+          configMap:
+            name: "{{ .Release.Name }}-scripts"
+        - name: bsc-pvc
+          persistentVolumeClaim:
+            claimName: azure-managed-disk
