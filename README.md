@@ -102,6 +102,11 @@ Our helm chart created an Ingress which listens on request made to bsc.local. To
   You should see a basic authentication popup. The default username is `bsc` and the password is also `bsc`.
   > If the page does not load, try another browser. Some browsers ignore the hosts file.
 
+
+You should see a webpage looking like this:
+
+![blockscout](./docs/blockscout.png)
+
 #### Port Forwarding  
 
 You can also use local port forwarding to skip the ingress and connect directly with the pod.
@@ -124,8 +129,25 @@ The ingress exposes the following endpoints:
    ```bash
    curl -u bsc:bsc -k http://bsc.local/jsonhttp --data-binary '{"method":"web3_clientVersion","params":[],"id":1,"jsonrpc":"2.0"}' -H 'Content-Type: application/json'
    ```
+   You should receive the following result
+   ```json
+   {"jsonrpc":"2.0","id":1,"result":"Geth/v1.1.0-beta-b67a129e-20210524/linux-amd64/go1.16.4"}
+   ```
 - `bsc.local/web-socket`: Websocket endpoint
 - `bsc.local/p2p`: P2P endpoint
+
+## Debugging !
+
+If you want to check logs, execute the following
+- For checking the BSC Node: `kubectl logs -f bsc-0 logger`
+  
+  You should get an output with import outputs 
+  ![logger](./docs/logger.png)
+
+- For checking the BSC Node: `kubectl logs -l "app.kubernetes.io/name=bsc-explorer" -f`
+  
+  You should get an output such as this
+  ![logger](./docs/bsc-explorer.png)
 
 ## Customize
 
