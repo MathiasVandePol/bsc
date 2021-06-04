@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.explorer.name }}
+  labels:
+{{ include "explorer.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }} # by default is 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.explorer.name }}
+      app.kubernetes.io/instance: {{ .Values.explorer.name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Values.explorer.name  }}
+        app.kubernetes.io/instance: {{ .Values.explorer.name  }}
+    spec:
+      {{- with .Values.rootSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      containers:
+      - name: {{ .Values.explorer.name }}
+        image: "{{ .Values.explorer.image.repository }}:{{ .Values.explorer.image.tag }}"
+        imagePullPolicy: {{ .Values.explorer.image.pullPolicy }}
+        env:
+          - name: DATABASE_URL 
+            value: "postgresql://postgres:postgres@postgres-postgresql.default.svc.cluster.local:5432/postgres?ssl=false"            
+          - name: ETHEREUM_JSONRPC_HTTP_URL 
+            value: "http://{{ .Release.Name }}-service.default.svc.cluster.local:{{ .Values.service.httpPort}}"            
+          - name: ETHEREUM_JSONRPC_TRACE_URL 
+            value: "http://{{ .Release.Name }}-service.default.svc.cluster.local:{{ .Values.service.httpPort}}"   
+          - name: ETHEREUM_JSONRPC_WS_URL 
+            value: "ws://{{ .Release.Name }}-service.default.svc.cluster.local:{{ .Values.service.wsPort}}"
+        ports:
+          {{- range $val := .Values.explorer.service.ports }}
+        - containerPort: {{ $val.port }}
+          name: "{{ $val.name }}"
+          protocol: {{ $val.protocol | default "TCP" }}
+          {{- end }}

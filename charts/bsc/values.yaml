@@ -1,39 +1,39 @@
-# Default values for bsc.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
-
 replicaCount: 1
-
 terminationGracePeriodSeconds: 180
-
-image:
-  repository: dysnix/bsc
-  tag: latest
-  pullPolicy: Always
-
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
 # enable this only once - when your blockchain is empty. It overwrites everything
-init_genesis: true
+init_genesis: false
 
-# Don't use spaces or special chars
+explorer:
+  name: bsc-explorer
+  image:
+    repository: mvandep3/bsc-explorer
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    ports: 
+    - name: http
+      port: 4000
+
 bsc:
-  # we don't have other chains, it's just a pod label for now
   chain: testnet
-  #  Blockchain sync mode ("fast", "full", or "light") (default: fast)
   syncmode: "fast"
-  # Blockchain garbage collection mode ("full", "archive") (default: "full")
-  gcmode: "full"
+  gcmode: "archive"
   base_path: "/data"
-  httpApi: "eth,net,web3,txpool,parlia"
+  httpApi: "db,eth,net,web3,personal,txpool,parlia"
   httpVhosts: "*"
   wsApi: "net,web3,eth"
   wsOrigins: "*"
-  graphQlVhosts: "*"
   maxpeers: 50
   cache: 4096
+  image:
+    repository: mvandep3/bsc
+    tag: latest
+    pullPolicy: Always
 
 livenessProbe:
   initialDelaySeconds: 300
@@ -48,78 +48,63 @@ service:
   httpPort: &httpPort 8575
   wsPort: &wsPort 8576
   wsPortName: &wsPortName web-socket
-  graphQlPort: &graphQlPort 8577
-  graphQlPortName: &graphQlPortName qraphql
   p2pPort0: &p2pPort0 30311
   p2pPortName0: &p2pPortName0 p2p
   p2pPortProtocol0: &p2pPortProtocol0 TCP
   p2pPort1: &p2pPort1 30311
-  p2pPortName1: &p2pPortName1 p2p-discovery
-  p2pPortProtocol1: &p2pPortProtocol1 UDP
   ports:
     - port: *httpPort
       name: *httpPortName
     - port: *wsPort
       name: *wsPortName
-    - port: *graphQlPort
-      name: *graphQlPortName
     - port: *p2pPort0
       name: *p2pPortName0
       protocol: *p2pPortProtocol0
-    - port: *p2pPort1
-      name: *p2pPortName1
-      protocol: *p2pPortProtocol1
 
 bscCmdOverride: false
 bscCmd: ""
 
-externalLB: false
-externalLBIP: ""
-externalLBSourceRanges: {}
-#  - 198.51.100.1/32
-#  - 198.51.100.2/32
-
-externalLBp2p: false
-externalLBp2pIP: 203.0.113.0
-
-externalLBp2pDiscovery: false
-externalLBp2pDiscoveryIP: 203.0.113.0
-
-internalLB: false
-internalLBIP: ""
-
 persistence:
+  azure: true
   storageClass: "managed-premium" #or standard
   accessMode: ReadWriteOnce
   size: "1000Gi"
 
-
 ingress:
-  enabled: false
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
+  enabled: true
+  annotations: 
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: bsc-basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Authentication Required - ok"
   hosts:
-    - host: chart-example.local
-      paths: []
-
+    - host: bsc.local
   tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
+
+http_auth:
+  user: bsc
+  password: bsc
 
 resources:
   requests:
     cpu: "1000m"
-    memory: "2000Mi"
+    memory: "3000Mi"
   limits:
-    cpu: "3000m"
+    cpu: "2000m"
     memory: "5000Mi"
 
 securityContext:
   runAsUser: 1000
   runAsGroup: 1000
   fsGroup: 1000
+
+rootSecurityContext:
+  runAsUser: 0
+  runAsGroup: 0
+  fsGroup: 0
 
 
 nodeSelector: {}

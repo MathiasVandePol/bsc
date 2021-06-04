@@ -50,7 +50,6 @@ DataDir = "node"
 InsecureUnlockAllowed = false
 NoUSB = true
 IPCPath = "geth.ipc"
-HTTPHost = "127.0.0.1"
 HTTPPort = 8575
 HTTPVirtualHosts = ["*"]
 HTTPModules = ["debug","eth", "net", "web3", "txpool", "parlia"]
