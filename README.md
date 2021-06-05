@@ -75,7 +75,7 @@ helm install nginx-ingress ingress-nginx/ingress-nginx \
 **Installing the BSC node and Blockscout Explorer**
 
 1. Go in the charts folder
-2. In the `values.yaml` file make sure `init_genesis` is set to true`. This is necessary to generate the genesis.
+2. In the `values.yaml` file make sure `init_genesis` is set to `true`. This is necessary to generate the genesis.
 3. Run `helm install bsc ./bsc`
 4. Set `init_genesis` to false in the `/charts/values.yaml` file for the future
 5. Your done! Check the state with `kubectl get pods` or check in [Octant](https://octant.dev/)
