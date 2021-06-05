@@ -5,7 +5,7 @@ nameOverride: ""
 fullnameOverride: ""
 
 # enable this only once - when your blockchain is empty. It overwrites everything
-init_genesis: false
+init_genesis: true
 
 explorer:
   name: bsc-explorer
